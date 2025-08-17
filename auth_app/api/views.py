@@ -7,3 +7,23 @@ from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework import status
 
 
+class RegistrationView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = RegistrationSerializer(data=request.data)
+        if serializer.is_valid():
+            saved_account = serializer.save()
+            token, created = Token.objects.get_or_create(user=saved_account)
+            data={
+                'token': token.key,
+                'username': saved_account.username,
+                'email': saved_account.email,
+                'user_id': saved_account.id
+                
+            }
+        else:
+            data = serializer.errors
+        return Response(data)
+
+    
