@@ -37,6 +37,11 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'auth_app',
+    'rest_framework',
+    'rest_framework.authtoken',
+    'coder',
+
 ]
 
 MIDDLEWARE = [
@@ -98,7 +103,7 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
+AUTH_USER_MODEL = 'auth_app.User'
 
 
 # Internationalization
