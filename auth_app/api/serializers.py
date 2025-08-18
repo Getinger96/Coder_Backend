@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from auth_app.models import User
+from coder.models import Profile
 
 
 
@@ -14,6 +15,17 @@ class RegistrationSerializer(serializers.ModelSerializer):
             'password': {'write_only': True},
          }
       
+    def create(self, validated_data):
+        password = validated_data.pop('password')
+        user = User(**validated_data)
+        user.set_password(password)
+        user.save()
+
+        
+        Profile.objects.create(user=user)
+
+        return user
+
     def save(self):
         pw=self.validated_data['password']
         repeated_pw=self.validated_data['repeated_password']
@@ -26,3 +38,13 @@ class RegistrationSerializer(serializers.ModelSerializer):
         account.set_password(pw)
         account.save()
         return account
+    
+
+
+class ProfileSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Profile
+        fields = ['file', 'location', 'tel', 'description', 'working_hours']
+    
+    
