@@ -1,6 +1,6 @@
-from rest_framework import generics
-from .serializers import CustomerProfileSerializer, BusinessProfileSerializer,CustomerProfileListSerializer,BusinessProfileListSerializer
-from coder.models import Profile
+from rest_framework import generics,viewsets
+from .serializers import CustomerProfileSerializer, BusinessProfileSerializer,CustomerProfileListSerializer,BusinessProfileListSerializer,OfferSerializer
+from coder.models import Profile,Offer
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 
@@ -58,3 +58,7 @@ class ProfileBusinessView(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
 
     
+
+class OfferViewSet(viewsets.ModelViewSet):
+    queryset = Offer.objects.all()
+    serializer_class = OfferSerializer
