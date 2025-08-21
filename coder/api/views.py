@@ -1,10 +1,18 @@
-from rest_framework import generics,viewsets
-from .serializers import CustomerProfileSerializer, BusinessProfileSerializer,CustomerProfileListSerializer,BusinessProfileListSerializer,OfferSerializer
+from rest_framework import generics,viewsets,filters
+from .serializers import CustomerProfileSerializer, BusinessProfileSerializer,CustomerProfileListSerializer,BusinessProfileListSerializer,OfferSerializer,OfferListSerializer,OfferDetailViewSerializer
 from coder.models import Profile,Offer
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from django_filters.rest_framework import DjangoFilterBackend
+from django.db.models import Min
+from rest_framework.pagination import PageNumberPagination
 
 
+
+class LargeResultsSetPagination(PageNumberPagination):
+    page_size = 6
+    page_size_query_param = 'page_size'
+    max_page_size = 10000
 
 
 
@@ -59,6 +67,48 @@ class ProfileBusinessView(generics.ListAPIView):
 
     
 
-class OfferViewSet(viewsets.ModelViewSet):
+class OfferView(generics.ListCreateAPIView):
     queryset = Offer.objects.all()
-    serializer_class = OfferSerializer
+    filter_backends = [DjangoFilterBackend,filters.SearchFilter,filters.OrderingFilter]
+    filterset_fields = ['profile__user_id']
+    search_fields=['title', 'description']
+    ordering_fields = [ 'updated_at','min_price']
+    ordering=['updated_at']
+    pagination_class = LargeResultsSetPagination
+    
+
+    def get_serializer_class(self):
+        if self.request.method == 'POST':
+            return OfferSerializer  # Für Erstellung
+        return OfferListSerializer  # Für GET-Listenansicht
+
+    def get_queryset(self):
+        queryset = Offer.objects.all()
+
+        # Filter: creator_id
+        creator_id = self.request.query_params.get('creator_id')
+        if creator_id is not None:
+            queryset = queryset.filter(profile__user__id=creator_id)
+
+        # Annotation für min_price
+        min_price = self.request.query_params.get('min_price')
+        if min_price is not None:
+            queryset = queryset.annotate(min_price=Min('details__price'))\
+                               .filter(min_price__gte=min_price)
+
+        # Annotation für max_delivery_time
+        max_delivery_time = self.request.query_params.get('max_delivery_time')
+        if max_delivery_time is not None:
+            queryset = queryset.annotate(min_delivery_time=Min('details__delivery_time_in_days'))\
+                               .filter(min_delivery_time__lte=max_delivery_time)
+
+        return queryset
+    
+
+
+
+
+class OfferDetailView(generics.RetrieveAPIView):
+     queryset = Offer.objects.all()
+     serializer_class = OfferDetailViewSerializer
+     lookup_field = 'pk'

@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from coder.models import Profile,OfferDetail, Offer
+from django.db.models import Min
 
 
 
@@ -195,3 +196,99 @@ class OfferSerializer(serializers.ModelSerializer):
         OfferDetail.objects.create(offer=offer, **detail_data)
 
      return offer
+    
+
+class OfferDetailListSerializer(serializers.ModelSerializer):
+    url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = OfferDetail
+        fields = ['id', 'url']
+
+    def get_url(self, obj):
+        return f"/offerdetails/{obj.id}/"
+    
+
+
+class OfferListSerializer(serializers.ModelSerializer):
+    user = serializers.SerializerMethodField()
+    user_details = serializers.SerializerMethodField()
+    min_price = serializers.SerializerMethodField()
+    min_delivery_time = serializers.SerializerMethodField()
+    details = OfferDetailListSerializer(many=True)
+    
+    class Meta:
+        model = Offer
+        fields = [
+            'id',
+            'user',
+            'title',
+            'image',
+            'description',
+            'created_at',
+            'updated_at',
+            'details',
+            'min_price',
+            'min_delivery_time',
+            'user_details'
+        ]
+
+    def get_user(self, obj):
+        return obj.profile.user.id
+
+    def get_user_details(self, obj):
+        user = obj.profile.user
+        return {
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'username': user.username
+        }
+
+    def get_min_price(self, obj):
+        return obj.details.all().aggregate(Min('price'))['price__min']
+
+    def get_min_delivery_time(self, obj):
+        return obj.details.all().aggregate(Min('delivery_time_in_days'))['delivery_time_in_days__min']
+    
+
+
+
+class OfferDetailViewSerializer(serializers.ModelSerializer):
+    user = serializers.SerializerMethodField()
+    details = serializers.SerializerMethodField()
+    min_price = serializers.SerializerMethodField()
+    min_delivery_time = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Offer
+        fields = [
+            'id',
+            'user',
+            'title',
+            'image',
+            'description',
+            'created_at',
+            'updated_at',
+            'details',
+            'min_price',
+            'min_delivery_time',
+        ]
+
+    def get_user(self, obj):
+        return obj.profile.user.id
+
+    def get_details(self, obj):
+        request = self.context.get('request')
+        return [
+            {
+                'id': detail.id,
+                'url': request.build_absolute_uri(f'/api/offerdetails/{detail.id}/')
+            }
+            for detail in obj.details.all()
+        ]
+
+    def get_min_price(self, obj):
+        return obj.details.all().aggregate(Min('price'))['price__min']
+
+    def get_min_delivery_time(self, obj):
+        return obj.details.all().aggregate(Min('delivery_time_in_days'))['delivery_time_in_days__min']
