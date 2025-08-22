@@ -5,7 +5,13 @@ from django.db.models import Min
 
 
 
-
+class OfferDetailHyperlinkedSerializer(serializers.HyperlinkedModelSerializer):
+    class Meta:
+        model = OfferDetail
+        fields = ['id', 'url']
+        extra_kwargs = {
+            'url': {'view_name': 'offerdetail_detail', 'lookup_field': 'pk'}
+        }
 
 
 
@@ -198,6 +204,34 @@ class OfferSerializer(serializers.ModelSerializer):
      return offer
     
 
+    def update(self, instance, validated_data):
+     details_data = validated_data.pop('details', None)
+
+    # Update einfache Felder
+     for attr, value in validated_data.items():
+        setattr(instance, attr, value)
+     instance.save()
+
+     if details_data is not None:
+        # Alle bestehenden OfferDetails holen
+        existing_details = {d.offer_type: d for d in instance.details.all()}
+
+        for detail_data in details_data:
+            offer_type = detail_data.get('offer_type')
+
+            if offer_type in existing_details:
+                # Detail aktualisieren
+                detail = existing_details[offer_type]
+                for attr, value in detail_data.items():
+                    setattr(detail, attr, value)
+                detail.save()
+            else:
+                # Neues Detail anlegen
+                OfferDetail.objects.create(offer=instance, **detail_data)
+
+     return instance
+    
+
 class OfferDetailListSerializer(serializers.ModelSerializer):
     url = serializers.SerializerMethodField()
 
@@ -255,7 +289,7 @@ class OfferListSerializer(serializers.ModelSerializer):
 
 class OfferDetailViewSerializer(serializers.ModelSerializer):
     user = serializers.SerializerMethodField()
-    details = serializers.SerializerMethodField()
+    details = OfferDetailHyperlinkedSerializer(many=True, read_only=True)
     min_price = serializers.SerializerMethodField()
     min_delivery_time = serializers.SerializerMethodField()
 

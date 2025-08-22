@@ -1,6 +1,6 @@
 from rest_framework import generics,viewsets,filters
-from .serializers import CustomerProfileSerializer, BusinessProfileSerializer,CustomerProfileListSerializer,BusinessProfileListSerializer,OfferSerializer,OfferListSerializer,OfferDetailViewSerializer
-from coder.models import Profile,Offer
+from .serializers import CustomerProfileSerializer, BusinessProfileSerializer,CustomerProfileListSerializer,BusinessProfileListSerializer,OfferSerializer,OfferListSerializer,OfferDetailViewSerializer,OfferDetailHyperlinkedSerializer
+from coder.models import Profile,Offer,OfferDetail
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
@@ -108,7 +108,18 @@ class OfferView(generics.ListCreateAPIView):
 
 
 
-class OfferDetailView(generics.RetrieveAPIView):
+class OfferDetailView(generics.RetrieveUpdateDestroyAPIView):
      queryset = Offer.objects.all()
-     serializer_class = OfferDetailViewSerializer
+     
      lookup_field = 'pk'
+
+     def get_serializer_class(self):
+        if self.request.method == 'GET':
+            return OfferDetailViewSerializer  # Für GET-Anfragen (z. B. mit Hyperlinks, min_price etc.)
+        return OfferSerializer  # Für PATCH und DELETE
+
+
+
+class OfferDetailRetrieveView(generics.RetrieveAPIView):
+    queryset = OfferDetail.objects.all()
+    serializer_class = OfferDetailHyperlinkedSerializer
