@@ -52,3 +52,18 @@ class OfferDetail(models.Model):
 
     def __str__(self):
         return self.title
+    
+
+class Order(models.Model):
+
+    ORDER_STATUS_CHOICES = [
+        ('in_progress', 'In Progress'),
+        ('completed', 'Completed'),
+        ('canceled', 'Canceled'),
+    ]
+    offer_detail = models.ForeignKey(OfferDetail, related_name='orders', on_delete=models.CASCADE)
+    customer_user = models.ForeignKey(Profile, related_name='orders', on_delete=models.CASCADE)
+    business_user = models.ForeignKey(Profile, related_name='received_orders', on_delete=models.CASCADE)
+    status=models.CharField(max_length=20, choices=ORDER_STATUS_CHOICES, default='in_progress')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)

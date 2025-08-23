@@ -1,6 +1,6 @@
-from rest_framework import generics,viewsets,filters
-from .serializers import CustomerProfileSerializer, BusinessProfileSerializer,CustomerProfileListSerializer,BusinessProfileListSerializer,OfferSerializer,OfferListSerializer,OfferDetailViewSerializer,OfferDetailHyperlinkedSerializer
-from coder.models import Profile,Offer,OfferDetail
+from rest_framework import generics,viewsets,filters,status
+from .serializers import CustomerProfileSerializer, BusinessProfileSerializer,CustomerProfileListSerializer,BusinessProfileListSerializer,OfferSerializer,OfferListSerializer,OfferDetailViewSerializer,OfferDetailHyperlinkedSerializer,OrderSerializer,OrderCreateserializer
+from coder.models import Profile,Offer,OfferDetail,Order
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
@@ -123,3 +123,24 @@ class OfferDetailView(generics.RetrieveUpdateDestroyAPIView):
 class OfferDetailRetrieveView(generics.RetrieveAPIView):
     queryset = OfferDetail.objects.all()
     serializer_class = OfferDetailHyperlinkedSerializer
+
+
+
+class OrderView(generics.ListCreateAPIView):
+    queryset = Order.objects.all()
+
+    def get_serializer_class(self):
+       if self.request.method == 'POST':
+           return OrderCreateserializer
+       return OrderSerializer
+    
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        # Bestellung erstellen
+        order = serializer.save()
+
+        # Für die Response den vollständigen Serializer verwenden
+        response_serializer = OrderSerializer(order, context={'request': request})
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED)

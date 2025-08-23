@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from coder.models import Profile,OfferDetail, Offer
+from coder.models import Profile,OfferDetail, Offer,Order
 from django.db.models import Min
 
 
@@ -326,3 +326,57 @@ class OfferDetailViewSerializer(serializers.ModelSerializer):
 
     def get_min_delivery_time(self, obj):
         return obj.details.all().aggregate(Min('delivery_time_in_days'))['delivery_time_in_days__min']
+    
+
+
+class OrderSerializer(serializers.ModelSerializer):
+    customer_user = serializers.PrimaryKeyRelatedField(read_only=True)
+    business_user = serializers.PrimaryKeyRelatedField(read_only=True)
+
+    title = serializers.CharField(source='offer_detail.title', read_only=True)
+    revisions = serializers.IntegerField(source='offer_detail.revisions', read_only=True)
+    delivery_time_in_days = serializers.IntegerField(source='offer_detail.delivery_time_in_days', read_only=True)
+    price = serializers.DecimalField(source='offer_detail.price', max_digits=10, decimal_places=2, read_only=True)
+    features = serializers.JSONField(source='offer_detail.features', read_only=True)
+    offer_type = serializers.CharField(source='offer_detail.offer_type', read_only=True)
+
+    class Meta:
+        model = Order
+        fields = [
+            'id',
+            'customer_user',
+            'business_user',
+            'title',
+            'revisions',
+            'delivery_time_in_days',
+            'price',
+            'features',
+            'offer_type',
+            'status',
+            'created_at',
+            'updated_at',
+        ]
+
+class OrderCreateserializer(serializers.ModelSerializer):
+    offer_detail_id = serializers.PrimaryKeyRelatedField(source='offer_detail', queryset=OfferDetail.objects.all())
+  
+    class Meta:
+        model = Order
+        fields = ['offer_detail_id']
+        read_only_fields = ['status', 'created_at', 'updated_at']
+
+    def create(self, validated_data):
+       request = self.context.get('request')
+       customer_profile = Profile.objects.get(user=request.user)
+
+       offer_detail = validated_data['offer_detail']
+       business_profile = offer_detail.offer.profile
+        # Setze den Status standardmäßig auf 'in_progress'
+       order = Order.objects.create(
+            offer_detail=offer_detail,
+            customer_user=customer_profile,
+            business_user=business_profile,
+            status='in_progress'
+        )
+
+       return order
