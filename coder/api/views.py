@@ -1,11 +1,15 @@
 from rest_framework import generics,viewsets,filters,status
-from .serializers import CustomerProfileSerializer, BusinessProfileSerializer,CustomerProfileListSerializer,BusinessProfileListSerializer,OfferSerializer,OfferListSerializer,OfferDetailViewSerializer,OfferDetailHyperlinkedSerializer,OrderSerializer,OrderCreateserializer
-from coder.models import Profile,Offer,OfferDetail,Order
+from .serializers import CustomerProfileSerializer, BusinessProfileSerializer,CustomerProfileListSerializer,BusinessProfileListSerializer,OfferSerializer,OfferListSerializer,OfferDetailViewSerializer,OfferDetailHyperlinkedSerializer,OrderSerializer,OrderCreateserializer,OrderUpdateSerializer,ReviewCreateSerializer,ReviewSerializer
+from coder.models import Profile,Offer,OfferDetail,Order,Review
+from coder.models import User
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.views import APIView
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Min
 from rest_framework.pagination import PageNumberPagination
+from django.shortcuts import get_object_or_404
+from rest_framework.exceptions import PermissionDenied
 
 
 
@@ -144,3 +148,109 @@ class OrderView(generics.ListCreateAPIView):
         # Für die Response den vollständigen Serializer verwenden
         response_serializer = OrderSerializer(order, context={'request': request})
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+    
+
+class OrderDetailView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Order.objects.all()
+    serializer_class = OrderUpdateSerializer
+    lookup_field = 'pk'    
+
+    def patch(self, request, *args, **kwargs):
+        order = self.get_object()
+
+        # Eingabedaten validieren und speichern
+        serializer = self.get_serializer(order, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()  # Hier wird `updated_at` automatisch aktualisiert
+
+        # Jetzt den vollständigen Output mit allen Feldern zurückgeben
+        full_serializer = OrderSerializer(order, context={'request': request})
+        return Response(full_serializer.data)
+
+
+
+
+class BusinessUserOrderCountView(APIView):
+    # permission_classes = [IsAuthenticated]
+
+    def get(self, request, business_user_id):
+     print("business_user_id:", business_user_id)
+    
+     try:
+        user = User.objects.get(id=business_user_id)
+        print("User gefunden:", user)
+        print("User-Typ:", user.type)
+     except User.DoesNotExist:
+        print("User nicht gefunden")
+
+     user = get_object_or_404(User, id=business_user_id, type='business')
+
+     count = Order.objects.filter(
+        business_user__user=user,
+        status='in_progress'
+     ).count()
+
+     return Response({'order_count': count}, status=status.HTTP_200_OK)
+    
+
+
+
+class BusinessUserOrderCompletedCountView(APIView):
+    # permission_classes = [IsAuthenticated]
+
+    def get(self, request, business_user_id):
+    
+    
+   
+     user = User.objects.get(id=business_user_id)
+      
+    
+
+     user = get_object_or_404(User, id=business_user_id, type='business')
+
+     count = Order.objects.filter(
+        business_user__user=user,
+        status='completed'
+     ).count()
+
+     return Response({'completed_order_count': count}, status=status.HTTP_200_OK)
+    
+
+
+class ReviewCreateView(generics.CreateAPIView):
+    queryset = Review.objects.all()
+    # permission_classes = [permissions.IsAuthenticated]
+
+    def get_serializer_class(self):
+        if self.request.method == 'POST':
+            return ReviewCreateSerializer
+        return ReviewSerializer
+
+    def create(self, request, *args, **kwargs):
+        # Stelle sicher, dass nur Kunden Bewertungen schreiben dürfen
+        if request.user.type != 'customer':
+            return Response({'detail': 'Nur Kunden dürfen Bewertungen erstellen.'},
+                            status=status.HTTP_403_FORBIDDEN)
+
+        # ReviewCreateSerializer validiert die Eingabe
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        review = serializer.save()
+
+        # Gebe die komplette Bewertung mit dem ReviewSerializer zurück
+        output_serializer = ReviewSerializer(review)
+        return Response(output_serializer.data, status=status.HTTP_201_CREATED)
+    
+
+
+class ReviewDetailView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Review.objects.all()
+    serializer_class = ReviewSerializer
+    # permission_classes = [permissions.IsAuthenticated]
+
+    def get_object(self):
+        review = super().get_object()
+        # Berechtigungsprüfung: Nur Ersteller darf ändern/löschen
+        if review.reviewer.user != self.request.user:
+            raise PermissionDenied("Du bist nicht berechtigt, diese Bewertung zu bearbeiten oder zu löschen.")
+        return review

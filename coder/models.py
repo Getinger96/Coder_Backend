@@ -67,3 +67,13 @@ class Order(models.Model):
     status=models.CharField(max_length=20, choices=ORDER_STATUS_CHOICES, default='in_progress')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+
+
+class Review(models.Model):
+    business_user = models.ForeignKey(Profile, related_name='reviews', on_delete=models.CASCADE)
+    reviewer = models.ForeignKey(Profile, related_name='given_reviews', on_delete=models.CASCADE)
+    rating = models.PositiveIntegerField()
+    description = models.TextField(blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)

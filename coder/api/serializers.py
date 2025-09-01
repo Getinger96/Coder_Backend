@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from coder.models import Profile,OfferDetail, Offer,Order
+from coder.models import Profile,OfferDetail, Offer,Order,Review
 from django.db.models import Min
 
 
@@ -380,3 +380,68 @@ class OrderCreateserializer(serializers.ModelSerializer):
         )
 
        return order
+    
+
+class OrderUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Order
+        fields = ['status']
+
+
+
+
+class ReviewSerializer(serializers.ModelSerializer):
+    business_user = serializers.PrimaryKeyRelatedField(read_only=True)
+    reviewer = serializers.PrimaryKeyRelatedField(read_only=True)
+
+    class Meta:
+        model = Review
+        fields = ['id', 'business_user', 'reviewer', 'rating', 'description', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'business_user', 'reviewer', 'created_at', 'updated_at']
+
+    def update(self, instance, validated_data):
+        # Nur rating und description dürfen geändert werden
+        allowed_fields = {'rating', 'description'}
+        for field in validated_data:
+            if field not in allowed_fields:
+                raise serializers.ValidationError(f"Das Feld '{field}' darf nicht bearbeitet werden.")
+
+        # Werte aktualisieren
+        instance.rating = validated_data.get('rating', instance.rating)
+        instance.description = validated_data.get('description', instance.description)
+        instance.save()
+        return instance
+
+    
+
+class ReviewCreateSerializer(serializers.ModelSerializer):
+    business_user = serializers.PrimaryKeyRelatedField(queryset=Profile.objects.filter(user__type='business'))
+   
+
+    class Meta:
+        model = Review
+        fields = ['business_user', 'rating', 'description']
+
+    def validate(self, data):
+        request = self.context.get('request')
+        reviewer_profile = Profile.objects.get(user=request.user)
+
+        # Prüfung: hat der Benutzer bereits eine Bewertung für diesen Business?
+        if Review.objects.filter(
+            reviewer=reviewer_profile,
+            business_user=data['business_user']
+        ).exists():
+            raise serializers.ValidationError("Du hast diesen Anbieter bereits bewertet.")
+
+        return data
+
+    def create(self, validated_data):
+        request = self.context.get('request')
+        reviewer_profile = Profile.objects.get(user=request.user)
+
+        return Review.objects.create(
+            business_user=validated_data['business_user'],
+            reviewer=reviewer_profile,
+            rating=validated_data['rating'],
+            description=validated_data.get('description', '')
+        )
