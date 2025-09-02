@@ -1,5 +1,5 @@
 from rest_framework import generics,viewsets,filters,status
-from .serializers import CustomerProfileSerializer, BusinessProfileSerializer,CustomerProfileListSerializer,BusinessProfileListSerializer,OfferSerializer,OfferListSerializer,OfferDetailViewSerializer,OfferDetailHyperlinkedSerializer,OrderSerializer,OrderCreateserializer,OrderUpdateSerializer,ReviewCreateSerializer,ReviewSerializer
+from .serializers import CustomerProfileSerializer, BusinessProfileSerializer,CustomerProfileListSerializer,BusinessProfileListSerializer,OfferSerializer,OfferListSerializer,OfferDetailViewSerializer,OfferDetailSerializer,OrderSerializer,OrderCreateserializer,OrderUpdateSerializer,ReviewCreateSerializer,ReviewSerializer
 from coder.models import Profile,Offer,OfferDetail,Order,Review
 from coder.models import User
 from rest_framework.response import Response
@@ -10,30 +10,39 @@ from django.db.models import Min, Avg
 from rest_framework.pagination import PageNumberPagination
 from django.shortcuts import get_object_or_404
 from rest_framework.exceptions import PermissionDenied
+from.permissions import IsBusinessUserOrReadOnly, IsOwnerOrReadOnly, IsCustomerForPost, IsReviewOwnerOrReadOnly, IsBusinessForPatchOrAdminForDelete
 
 
 
 class LargeResultsSetPagination(PageNumberPagination):
+    """
+    Pagination class to control page size and maximum page size.
+    """
     page_size = 6
     page_size_query_param = 'page_size'
     max_page_size = 10000
 
 
-
-
-
 class ProfileDetailView(generics.GenericAPIView):
+    """
+    Retrieve or partially update a user profile.
+
+    Permissions:
+        Only authenticated users.
+
+    Behavior:
+        GET: Returns the profile data. Uses different serializers for business and customer users.
+        PATCH: Allows the owner of the profile to partially update it.
+    """
     queryset = Profile.objects.all()
-    permission_classes= [IsAuthenticated]
-    
+    permission_classes = [IsAuthenticated]
     
     def get_serializer_class(self):
-          if self.request.user.type == 'business':
-                return BusinessProfileSerializer
-          else:
-                return CustomerProfileSerializer
+        if self.request.user.type == 'business':
+            return BusinessProfileSerializer
+        else:
+            return CustomerProfileSerializer
 
-   
     def get(self, request, *args, **kwargs):
         profile = self.get_object()
         serializer_class = self.get_serializer_class()
@@ -43,7 +52,7 @@ class ProfileDetailView(generics.GenericAPIView):
     def patch(self, request, *args, **kwargs):
         profile = self.get_object()
         if profile.user != request.user:
-         return Response({'detail': 'You do not have permission to edit this profile.'}, status=403)
+            return Response({'detail': 'You do not have permission to edit this profile.'}, status=403)
         
         serializer_class = self.get_serializer_class()
         input_serializer = serializer_class(profile, data=request.data, partial=True)
@@ -54,212 +63,293 @@ class ProfileDetailView(generics.GenericAPIView):
         return Response(input_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-
-
 class ProfileCustomerView(generics.ListAPIView):
+    """
+    List all customer profiles.
+
+    Permissions:
+        Only authenticated users.
+    """
     queryset = Profile.objects.filter(user__type='customer')
     serializer_class = CustomerProfileListSerializer
     permission_classes = [IsAuthenticated]
 
-    
-    
 
 class ProfileBusinessView(generics.ListAPIView):
+    """
+    List all business profiles.
+
+    Permissions:
+        Only authenticated users.
+    """
     queryset = Profile.objects.filter(user__type='business')
     serializer_class = BusinessProfileListSerializer
     permission_classes = [IsAuthenticated]
 
-    
 
 class OfferView(generics.ListCreateAPIView):
+    """
+    List all offers or create a new offer.
+
+    Permissions:
+        Business users can create offers; others can read.
+
+    Filtering:
+        Supports filtering by creator_id, min_price, max_delivery_time.
+        Supports search by title and description.
+        Supports ordering by updated_at and min_price.
+
+    Pagination:
+        Uses LargeResultsSetPagination.
+    """
     queryset = Offer.objects.all()
-    filter_backends = [DjangoFilterBackend,filters.SearchFilter,filters.OrderingFilter]
+    permission_classes = [IsBusinessUserOrReadOnly]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['profile__user_id']
-    search_fields=['title', 'description']
-    ordering_fields = [ 'updated_at','min_price']
-    ordering=['updated_at']
+    search_fields = ['title', 'description']
+    ordering_fields = ['updated_at', 'min_price']
+    ordering = ['updated_at']
     pagination_class = LargeResultsSetPagination
-    
 
     def get_serializer_class(self):
         if self.request.method == 'POST':
-            return OfferSerializer  # Für Erstellung
-        return OfferListSerializer  # Für GET-Listenansicht
+            return OfferSerializer  # Serializer for creating an offer
+        return OfferListSerializer  # Serializer for listing offers
 
     def get_queryset(self):
         queryset = Offer.objects.all()
 
-        # Filter: creator_id
+        # Filter by creator_id (user id)
         creator_id = self.request.query_params.get('creator_id')
         if creator_id is not None:
             queryset = queryset.filter(profile__user__id=creator_id)
 
-        # Annotation für min_price
+        # Filter by min_price (annotate and filter)
         min_price = self.request.query_params.get('min_price')
         if min_price is not None:
             queryset = queryset.annotate(min_price=Min('details__price'))\
                                .filter(min_price__gte=min_price)
 
-        # Annotation für max_delivery_time
+        # Filter by max_delivery_time (annotate and filter)
         max_delivery_time = self.request.query_params.get('max_delivery_time')
         if max_delivery_time is not None:
             queryset = queryset.annotate(min_delivery_time=Min('details__delivery_time_in_days'))\
                                .filter(min_delivery_time__lte=max_delivery_time)
 
         return queryset
-    
-
-
 
 
 class OfferDetailView(generics.RetrieveUpdateDestroyAPIView):
-     queryset = Offer.objects.all()
-     
-     lookup_field = 'pk'
+    """
+    Retrieve, update or delete a single offer.
 
-     def get_serializer_class(self):
+    Permissions:
+        Authenticated users can view.
+        Only owners can edit or delete.
+
+    Behavior:
+        GET: Uses OfferDetailViewSerializer.
+        PATCH, DELETE: Uses OfferSerializer.
+    """
+    queryset = Offer.objects.all()
+    permission_classes = [IsAuthenticated, IsOwnerOrReadOnly]
+    lookup_field = 'pk'
+
+    def get_serializer_class(self):
         if self.request.method == 'GET':
-            return OfferDetailViewSerializer  # Für GET-Anfragen (z. B. mit Hyperlinks, min_price etc.)
-        return OfferSerializer  # Für PATCH und DELETE
-
+            return OfferDetailViewSerializer
+        return OfferSerializer
 
 
 class OfferDetailRetrieveView(generics.RetrieveAPIView):
-    queryset = OfferDetail.objects.all()
-    serializer_class = OfferDetailHyperlinkedSerializer
+    """
+    Retrieve details of a specific OfferDetail.
 
+    Permissions:
+        Only authenticated users.
+    """
+    queryset = OfferDetail.objects.all()
+    serializer_class = OfferDetailSerializer
+    permission_classes = [IsAuthenticated]
+    lookup_field = 'pk'
 
 
 class OrderView(generics.ListCreateAPIView):
+    """
+    List all orders or create a new order.
+
+    Permissions:
+        Only customers can create orders.
+    """
     queryset = Order.objects.all()
+    permission_classes = [IsCustomerForPost]
 
     def get_serializer_class(self):
-       if self.request.method == 'POST':
-           return OrderCreateserializer
-       return OrderSerializer
+        if self.request.method == 'POST':
+            return OrderCreateserializer
+        return OrderSerializer
     
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        # Bestellung erstellen
+        # Create the order
         order = serializer.save()
 
-        # Für die Response den vollständigen Serializer verwenden
+        # Return full order data in response
         response_serializer = OrderSerializer(order, context={'request': request})
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
-    
+
 
 class OrderDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """
+    Retrieve, update, or delete a specific order.
+
+    Permissions:
+        Only business users can patch.
+        Only admins can delete.
+    """
     queryset = Order.objects.all()
     serializer_class = OrderUpdateSerializer
-    lookup_field = 'pk'    
+    lookup_field = 'pk'
+    permission_classes = [IsBusinessForPatchOrAdminForDelete]
 
     def patch(self, request, *args, **kwargs):
         order = self.get_object()
 
-        # Eingabedaten validieren und speichern
+        # Validate and save input data
         serializer = self.get_serializer(order, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
-        serializer.save()  # Hier wird `updated_at` automatisch aktualisiert
+        serializer.save()  # updated_at is updated automatically
 
-        # Jetzt den vollständigen Output mit allen Feldern zurückgeben
+        # Return full order data with all fields
         full_serializer = OrderSerializer(order, context={'request': request})
         return Response(full_serializer.data)
 
 
-
-
 class BusinessUserOrderCountView(APIView):
-    # permission_classes = [IsAuthenticated]
+    """
+    Return the count of 'in_progress' orders for a specific business user.
+
+    Permissions:
+        Only authenticated users.
+    """
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, business_user_id):
-     print("business_user_id:", business_user_id)
-    
-     try:
-        user = User.objects.get(id=business_user_id)
-        print("User gefunden:", user)
-        print("User-Typ:", user.type)
-     except User.DoesNotExist:
-        print("User nicht gefunden")
+        user = get_object_or_404(User, id=business_user_id, type='business')
 
-     user = get_object_or_404(User, id=business_user_id, type='business')
+        count = Order.objects.filter(
+            business_user__user=user,
+            status='in_progress'
+        ).count()
 
-     count = Order.objects.filter(
-        business_user__user=user,
-        status='in_progress'
-     ).count()
-
-     return Response({'order_count': count}, status=status.HTTP_200_OK)
-    
-
+        return Response({'order_count': count}, status=status.HTTP_200_OK)
 
 
 class BusinessUserOrderCompletedCountView(APIView):
-    # permission_classes = [IsAuthenticated]
+    """
+    Return the count of 'completed' orders for a specific business user.
+
+    Permissions:
+        Only authenticated users.
+    """
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, business_user_id):
-    
-    
-   
-     user = User.objects.get(id=business_user_id)
-      
-    
+        user = get_object_or_404(User, id=business_user_id, type='business')
 
-     user = get_object_or_404(User, id=business_user_id, type='business')
+        count = Order.objects.filter(
+            business_user__user=user,
+            status='completed'
+        ).count()
 
-     count = Order.objects.filter(
-        business_user__user=user,
-        status='completed'
-     ).count()
-
-     return Response({'completed_order_count': count}, status=status.HTTP_200_OK)
-    
+        return Response({'completed_order_count': count}, status=status.HTTP_200_OK)
 
 
-class ReviewCreateView(generics.CreateAPIView):
+class ReviewCreateView(generics.ListCreateAPIView):
+    """
+    List all reviews or create a new review.
+
+    Permissions:
+        Only customers can create reviews.
+
+    Ordering:
+        Can order by 'updated_at' or 'rating'.
+
+    Filtering:
+        Can filter by business_user_id and reviewer_id.
+    """
     queryset = Review.objects.all()
-    # permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsCustomerForPost]
+    ordering_fields = ['updated_at', 'rating']
+    ordering = ['updated_at']
 
     def get_serializer_class(self):
         if self.request.method == 'POST':
             return ReviewCreateSerializer
         return ReviewSerializer
+    
+    def get_queryset(self):
+        queryset = Review.objects.all()
+
+        business_user_id = self.request.query_params.get('business_user_id')
+        if business_user_id:
+            queryset = queryset.filter(business_user__user__id=business_user_id)
+
+        reviewer_id = self.request.query_params.get('reviewer_id')
+        if reviewer_id:
+            queryset = queryset.filter(reviewer__user__id=reviewer_id)
+
+        ordering = self.request.query_params.get('ordering')
+        if ordering in ['updated_at', 'rating']:
+            queryset = queryset.order_by(ordering)
+
+        return queryset
 
     def create(self, request, *args, **kwargs):
-        # Stelle sicher, dass nur Kunden Bewertungen schreiben dürfen
-        if request.user.type != 'customer':
-            return Response({'detail': 'Nur Kunden dürfen Bewertungen erstellen.'},
-                            status=status.HTTP_403_FORBIDDEN)
-
-        # ReviewCreateSerializer validiert die Eingabe
+        # Validation handled by permission
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         review = serializer.save()
 
-        # Gebe die komplette Bewertung mit dem ReviewSerializer zurück
         output_serializer = ReviewSerializer(review)
         return Response(output_serializer.data, status=status.HTTP_201_CREATED)
-    
 
 
 class ReviewDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """
+    Retrieve, update, or delete a review.
+
+    Permissions:
+        Only the reviewer may update or delete their review.
+    """
     queryset = Review.objects.all()
     serializer_class = ReviewSerializer
-    # permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsReviewOwnerOrReadOnly]
 
     def get_object(self):
         review = super().get_object()
-        # Berechtigungsprüfung: Nur Ersteller darf ändern/löschen
+        # Permission check: only reviewer may modify
         if review.reviewer.user != self.request.user:
-            raise PermissionDenied("Du bist nicht berechtigt, diese Bewertung zu bearbeiten oder zu löschen.")
+            raise PermissionDenied("You are not allowed to edit or delete this review.")
         return review
-    
 
 
 class BaseInfoView(APIView):
-    permission_classes = []  # Keine Auth erforderlich
+    """
+    Provides aggregated base information about the system.
 
+    GET:
+        Returns:
+            - Total number of reviews
+            - Average rating across all reviews
+            - Total number of business profiles
+            - Total number of offers
+
+    Error Handling:
+        Returns 500 with a generic error message if an exception occurs.
+    """
     def get(self, request):
         try:
             review_count = Review.objects.count()
@@ -277,6 +367,6 @@ class BaseInfoView(APIView):
 
         except Exception as e:
             return Response(
-                {"detail": "Ein interner Fehler ist aufgetreten."},
+                {"detail": "An internal error occurred."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )

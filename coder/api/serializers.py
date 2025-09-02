@@ -6,6 +6,9 @@ from django.db.models import Min
 
 
 class OfferDetailHyperlinkedSerializer(serializers.HyperlinkedModelSerializer):
+    """
+    Hyperlinked serializer for OfferDetail — only includes id and a detail URL.
+    """
     class Meta:
         model = OfferDetail
         fields = ['id', 'url']
@@ -14,50 +17,48 @@ class OfferDetailHyperlinkedSerializer(serializers.HyperlinkedModelSerializer):
         }
 
 
-
-
 class CustomerProfileSerializer(serializers.ModelSerializer):
-    user=serializers.SerializerMethodField('get_user')
-    username = serializers.SerializerMethodField('get_username')
+    """
+    Serializer for customer profiles, including linked user fields.
+    """
+    user = serializers.SerializerMethodField()
+    username = serializers.SerializerMethodField()
     type = serializers.SerializerMethodField()
     email = serializers.EmailField(source='user.email')
     created_at = serializers.DateTimeField(source='user.date_joined', read_only=True)
-    
 
-    
     class Meta:
         model = Profile
-        fields = ['user', 'username', 'first_name', 'last_name','file', 'uploaded_at','type','email','created_at']
+        fields = ['user', 'username', 'first_name', 'last_name', 'file', 'uploaded_at', 'type', 'email', 'created_at']
 
     def get_user(self, obj):
         return obj.user.id
-            
-       
+
     def get_username(self, obj):
-     return obj.user.username
-    
+        return obj.user.username
+
     def get_type(self, obj):
         return obj.user.type
 
     def to_representation(self, instance):
-     data = super().to_representation(instance)
-     if data.get('file') is None:
-        data['file'] = ''
-     return data
-
-    
+        """
+        Ensures 'file' is never null in the response.
+        """
+        data = super().to_representation(instance)
+        if data.get('file') is None:
+            data['file'] = ''
+        return data
 
     def update(self, instance, validated_data):
-        # user-Daten extrahieren
+        """
+        Updates profile and user email.
+        """
         user_data = validated_data.pop('user', {})
-
-        # email updaten, falls dabei
         email = user_data.get('email')
         if email:
             instance.user.email = email
             instance.user.save()
 
-        # Profilfelder updaten
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
 
@@ -68,46 +69,47 @@ class CustomerProfileSerializer(serializers.ModelSerializer):
 
 
 class BusinessProfileSerializer(serializers.ModelSerializer):
-    user=serializers.SerializerMethodField('get_user')
-    username = serializers.SerializerMethodField('get_username')
+    """
+    Serializer for customer profiles, including linked user fields.
+    """
+    user = serializers.SerializerMethodField()
+    username = serializers.SerializerMethodField()
     type = serializers.SerializerMethodField()
     email = serializers.EmailField(source='user.email')
     created_at = serializers.DateTimeField(source='user.date_joined', read_only=True)
-    
 
-    
     class Meta:
         model = Profile
-        fields = ['user', 'username', 'first_name', 'last_name','file','location','tel','description','working_hours','type','email','created_at']
+        fields = ['user', 'username', 'first_name', 'last_name', 'file', 'location', 'tel', 'description', 'working_hours', 'type', 'email', 'created_at']
 
     def get_user(self, obj):
         return obj.user.id
-    
+
     def get_username(self, obj):
-     return obj.user.username
-    
+        return obj.user.username
+
     def get_type(self, obj):
         return obj.user.type
 
     def to_representation(self, instance):
-     data = super().to_representation(instance)
-     if data.get('file') is None:
-        data['file'] = ''
-     return data
-
-    
+        """
+        Ensures 'file' is never null in the response.
+        """
+        data = super().to_representation(instance)
+        if data.get('file') is None:
+            data['file'] = ''
+        return data
 
     def update(self, instance, validated_data):
-        # user-Daten extrahieren
+        """
+        Updates profile and user email.
+        """
         user_data = validated_data.pop('user', {})
-
-        # email updaten, falls dabei
         email = user_data.get('email')
         if email:
             instance.user.email = email
             instance.user.save()
 
-        # Profilfelder updaten
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
 
@@ -118,72 +120,57 @@ class BusinessProfileSerializer(serializers.ModelSerializer):
     
 
 class CustomerProfileListSerializer(serializers.ModelSerializer):
+    """
+    Compact serializer for listing customer profiles.
+    """
     user = serializers.SerializerMethodField()
     username = serializers.SerializerMethodField()
     type = serializers.SerializerMethodField()
-    
 
     class Meta:
         model = Profile
         fields = ['user', 'username', 'first_name', 'last_name', 'file', 'uploaded_at', 'type']
 
-    def get_user(self, obj):
-        return obj.user.id
-
-    def get_username(self, obj):
-        return obj.user.username
-
-    def get_type(self, obj):
-        return obj.user.type
+    def get_user(self, obj): return obj.user.id
+    def get_username(self, obj): return obj.user.username
+    def get_type(self, obj): return obj.user.type
 
     def to_representation(self, instance):
-     data = super().to_representation(instance)
-     if data.get('file') is None:
-        data['file'] = ''
-     return data
+        data = super().to_representation(instance)
+        if data.get('file') is None:
+            data['file'] = ''
+        return data
 
     
 
 
 
 
-class BusinessProfileListSerializer(serializers.ModelSerializer):
-    user = serializers.SerializerMethodField()
-    username = serializers.SerializerMethodField()
-    type = serializers.SerializerMethodField()
-    
-
+class BusinessProfileListSerializer(CustomerProfileListSerializer):
+    """
+    Compact serializer for listing business profiles with extended fields.
+    """
     class Meta:
         model = Profile
         fields = ['user', 'username', 'first_name', 'last_name', 'file', 'location', 'tel', 'description', 'working_hours', 'type']
-
-    def get_user(self, obj):
-        return obj.user.id
-
-    def get_username(self, obj):
-        return obj.user.username
-
-    def get_type(self, obj):
-        return obj.user.type
-
-    def to_representation(self, instance):
-     data = super().to_representation(instance)
-     if data.get('file') is None:
-        data['file'] = ''
-     return data
 
     
 
 
 class OfferDetailSerializer(serializers.ModelSerializer):
+    """
+    Full serializer for offer detail block (basic/premium/etc.).
+    """
     class Meta:
         model = OfferDetail
         fields = ['id', 'title', 'revisions', 'delivery_time_in_days', 'price', 'features', 'offer_type']
 
 
 
-
 class OfferSerializer(serializers.ModelSerializer):
+    """
+    Serializer for creating/updating offers with nested OfferDetails.
+    """
     details = OfferDetailSerializer(many=True)
 
     class Meta:
@@ -191,48 +178,44 @@ class OfferSerializer(serializers.ModelSerializer):
         fields = ['id', 'title', 'image', 'description', 'details']
 
     def create(self, validated_data):
-     request = self.context.get('request')
-     user = request.user
-     profile = Profile.objects.get(user=user)  # falls du ein separates Profile-Modell nutzt
+        request = self.context.get('request')
+        profile = Profile.objects.get(user=request.user)
+        details_data = validated_data.pop('details')
 
-     details_data = validated_data.pop('details')
-     offer = Offer.objects.create(profile=profile, **validated_data)
-
-     for detail_data in details_data:
-        OfferDetail.objects.create(offer=offer, **detail_data)
-
-     return offer
-    
-
-    def update(self, instance, validated_data):
-     details_data = validated_data.pop('details', None)
-
-    # Update einfache Felder
-     for attr, value in validated_data.items():
-        setattr(instance, attr, value)
-     instance.save()
-
-     if details_data is not None:
-        # Alle bestehenden OfferDetails holen
-        existing_details = {d.offer_type: d for d in instance.details.all()}
+        offer = Offer.objects.create(profile=profile, **validated_data)
 
         for detail_data in details_data:
-            offer_type = detail_data.get('offer_type')
+            OfferDetail.objects.create(offer=offer, **detail_data)
 
-            if offer_type in existing_details:
-                # Detail aktualisieren
-                detail = existing_details[offer_type]
-                for attr, value in detail_data.items():
-                    setattr(detail, attr, value)
-                detail.save()
-            else:
-                # Neues Detail anlegen
-                OfferDetail.objects.create(offer=instance, **detail_data)
+        return offer
 
-     return instance
+    def update(self, instance, validated_data):
+        details_data = validated_data.pop('details', None)
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        if details_data is not None:
+            existing_details = {d.offer_type: d for d in instance.details.all()}
+
+            for detail_data in details_data:
+                offer_type = detail_data.get('offer_type')
+                if offer_type in existing_details:
+                    detail = existing_details[offer_type]
+                    for attr, value in detail_data.items():
+                        setattr(detail, attr, value)
+                    detail.save()
+                else:
+                    OfferDetail.objects.create(offer=instance, **detail_data)
+
+        return instance
     
 
 class OfferDetailListSerializer(serializers.ModelSerializer):
+    """
+    Simplified serializer for listing OfferDetails with a generated URL.
+    """
     url = serializers.SerializerMethodField()
 
     class Meta:
@@ -245,30 +228,24 @@ class OfferDetailListSerializer(serializers.ModelSerializer):
 
 
 class OfferListSerializer(serializers.ModelSerializer):
+    """
+    Serializer for listing offers with summary details and min values.
+    """
     user = serializers.SerializerMethodField()
     user_details = serializers.SerializerMethodField()
     min_price = serializers.SerializerMethodField()
     min_delivery_time = serializers.SerializerMethodField()
     details = OfferDetailListSerializer(many=True)
-    
+
     class Meta:
         model = Offer
         fields = [
-            'id',
-            'user',
-            'title',
-            'image',
-            'description',
-            'created_at',
-            'updated_at',
-            'details',
-            'min_price',
-            'min_delivery_time',
-            'user_details'
+            'id', 'user', 'title', 'image', 'description',
+            'created_at', 'updated_at', 'details',
+            'min_price', 'min_delivery_time', 'user_details'
         ]
 
-    def get_user(self, obj):
-        return obj.profile.user.id
+    def get_user(self, obj): return obj.profile.user.id
 
     def get_user_details(self, obj):
         user = obj.profile.user
@@ -283,11 +260,13 @@ class OfferListSerializer(serializers.ModelSerializer):
 
     def get_min_delivery_time(self, obj):
         return obj.details.all().aggregate(Min('delivery_time_in_days'))['delivery_time_in_days__min']
-    
 
 
 
 class OfferDetailViewSerializer(serializers.ModelSerializer):
+    """
+    Detailed view serializer for a single offer.
+    """
     user = serializers.SerializerMethodField()
     details = OfferDetailHyperlinkedSerializer(many=True, read_only=True)
     min_price = serializers.SerializerMethodField()
@@ -296,20 +275,12 @@ class OfferDetailViewSerializer(serializers.ModelSerializer):
     class Meta:
         model = Offer
         fields = [
-            'id',
-            'user',
-            'title',
-            'image',
-            'description',
-            'created_at',
-            'updated_at',
-            'details',
-            'min_price',
-            'min_delivery_time',
+            'id', 'user', 'title', 'image', 'description',
+            'created_at', 'updated_at', 'details',
+            'min_price', 'min_delivery_time',
         ]
 
-    def get_user(self, obj):
-        return obj.profile.user.id
+    def get_user(self, obj): return obj.profile.user.id
 
     def get_details(self, obj):
         request = self.context.get('request')
@@ -326,10 +297,13 @@ class OfferDetailViewSerializer(serializers.ModelSerializer):
 
     def get_min_delivery_time(self, obj):
         return obj.details.all().aggregate(Min('delivery_time_in_days'))['delivery_time_in_days__min']
-    
+
 
 
 class OrderSerializer(serializers.ModelSerializer):
+    """
+    Read-only serializer for retrieving orders with full offer detail info.
+    """
     customer_user = serializers.PrimaryKeyRelatedField(read_only=True)
     business_user = serializers.PrimaryKeyRelatedField(read_only=True)
 
@@ -343,21 +317,24 @@ class OrderSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = [
-            'id',
-            'customer_user',
-            'business_user',
-            'title',
-            'revisions',
-            'delivery_time_in_days',
-            'price',
-            'features',
-            'offer_type',
-            'status',
-            'created_at',
-            'updated_at',
+            'id', 'customer_user', 'business_user',
+            'title', 'revisions', 'delivery_time_in_days',
+            'price', 'features', 'offer_type',
+            'status', 'created_at', 'updated_at',
         ]
 
+
 class OrderCreateserializer(serializers.ModelSerializer):
+    """
+    Serializer for creating a new Order.
+
+    Fields:
+        offer_detail_id: Primary key of the OfferDetail being ordered.
+
+    Methods:
+        create: Creates a new Order using the logged-in customer's profile, the business profile
+                from the OfferDetail, and sets status to 'in_progress' by default.
+    """
     offer_detail_id = serializers.PrimaryKeyRelatedField(source='offer_detail', queryset=OfferDetail.objects.all())
   
     class Meta:
@@ -366,31 +343,50 @@ class OrderCreateserializer(serializers.ModelSerializer):
         read_only_fields = ['status', 'created_at', 'updated_at']
 
     def create(self, validated_data):
-       request = self.context.get('request')
-       customer_profile = Profile.objects.get(user=request.user)
+        request = self.context.get('request')
+        customer_profile = Profile.objects.get(user=request.user)
 
-       offer_detail = validated_data['offer_detail']
-       business_profile = offer_detail.offer.profile
-        # Setze den Status standardmäßig auf 'in_progress'
-       order = Order.objects.create(
+        offer_detail = validated_data['offer_detail']
+        business_profile = offer_detail.offer.profile
+
+        # Set status to 'in_progress' by default
+        order = Order.objects.create(
             offer_detail=offer_detail,
             customer_user=customer_profile,
             business_user=business_profile,
             status='in_progress'
         )
 
-       return order
+        return order
     
 
 class OrderUpdateSerializer(serializers.ModelSerializer):
+    """
+    Serializer to update the status of an Order.
+
+    Fields:
+        status: new status of the Order.
+    """
     class Meta:
         model = Order
         fields = ['status']
 
 
-
-
 class ReviewSerializer(serializers.ModelSerializer):
+    """
+    Serializer for viewing and updating Reviews.
+
+    Fields:
+        business_user: Profile of the reviewed business (read-only).
+        reviewer: Profile of the reviewer (read-only).
+        rating: Rating value.
+        description: Review description.
+        created_at: Creation timestamp (read-only).
+        updated_at: Update timestamp (read-only).
+
+    Methods:
+        update: Only 'rating' and 'description' can be updated.
+    """
     business_user = serializers.PrimaryKeyRelatedField(read_only=True)
     reviewer = serializers.PrimaryKeyRelatedField(read_only=True)
 
@@ -400,23 +396,31 @@ class ReviewSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'business_user', 'reviewer', 'created_at', 'updated_at']
 
     def update(self, instance, validated_data):
-        # Nur rating und description dürfen geändert werden
         allowed_fields = {'rating', 'description'}
         for field in validated_data:
             if field not in allowed_fields:
-                raise serializers.ValidationError(f"Das Feld '{field}' darf nicht bearbeitet werden.")
+                raise serializers.ValidationError(f"The field '{field}' cannot be modified.")
 
-        # Werte aktualisieren
         instance.rating = validated_data.get('rating', instance.rating)
         instance.description = validated_data.get('description', instance.description)
         instance.save()
         return instance
 
-    
 
 class ReviewCreateSerializer(serializers.ModelSerializer):
+    """
+    Serializer for creating a new Review.
+
+    Fields:
+        business_user: Business profile being reviewed (queryset restricted to business-type users).
+        rating: Rating value.
+        description: Review description.
+
+    Methods:
+        validate: Checks if the user has already reviewed this business.
+        create: Creates a new Review with the current user as the reviewer.
+    """
     business_user = serializers.PrimaryKeyRelatedField(queryset=Profile.objects.filter(user__type='business'))
-   
 
     class Meta:
         model = Review
@@ -426,12 +430,11 @@ class ReviewCreateSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         reviewer_profile = Profile.objects.get(user=request.user)
 
-        # Prüfung: hat der Benutzer bereits eine Bewertung für diesen Business?
         if Review.objects.filter(
             reviewer=reviewer_profile,
             business_user=data['business_user']
         ).exists():
-            raise serializers.ValidationError("Du hast diesen Anbieter bereits bewertet.")
+            raise serializers.ValidationError("You have already reviewed this business.")
 
         return data
 
