@@ -137,10 +137,8 @@ Use tools like Postman, Insomnia, or your frontend app to test and interact with
 | POST   | `/api/offers/`                                          | Create an Order                        |
 | Patch  | `/api/orders/{order_id}`                                | Update a specific Order                |
 | DELETE | `/api/orders/{order_id}/`                               | Delete a specific Order                |
-| GET    | `/api/order-count/{business_user_id}/`                  | Get the number of actual order from a  |
-                                                                     specific business_user                 |
-| GET    | `/api/completed-order-count/{business_user_id}/`        | Get the number of completed order from |
-                                                                     a specific business_user               |                                                                     
+| GET    | `/api/order-count/{business_user_id}/`                  | Get the number of actual order from a specific business_user|
+| GET    | `/api/completed-order-count/{business_user_id}/`        | Get the number of completed orders from a specific business_user|
 
 ### Reviews
 | Method | Endpoint                                                | Description                            |
