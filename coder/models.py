@@ -116,6 +116,10 @@ class Order(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    def __str__(self):
+        # Zeigt z. B. den OfferDetail Titel + Status
+        return f"Order #{self.id} - {self.offer_detail.title} ({self.status})"
+
 
 class Review(models.Model):
     """
@@ -135,3 +139,7 @@ class Review(models.Model):
     description = models.TextField(blank=True, default='')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        # Zeigt z. B. Reviewer → Business + Bewertung
+        return f"Review by {self.reviewer.user.username} for {self.business_user.user.username} "

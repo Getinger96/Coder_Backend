@@ -163,8 +163,26 @@ class OfferDetailSerializer(serializers.ModelSerializer):
     """
     class Meta:
         model = OfferDetail
-        fields = ['id', 'title', 'revisions', 'delivery_time_in_days', 'price', 'features', 'offer_type']
+        fields = [
+            'id',
+            'title',
+            'revisions',
+            'delivery_time_in_days',
+            'price',
+            'features',
+            'offer_type'
+        ]
+        extra_kwargs = {
+            'offer_type': {
+                'required': True,      # Pflichtfeld
+                'allow_blank': False,  # leere Strings nicht erlaubt
+            }
+        }
 
+    def validate_offer_type(self, value):
+        if not value:
+            raise serializers.ValidationError("Offer type is required.")
+        return value
 
 
 class OfferSerializer(serializers.ModelSerializer):
@@ -192,22 +210,32 @@ class OfferSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         details_data = validated_data.pop('details', None)
 
+        # Update Offer-Felder
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
 
         if details_data is not None:
+            # Bestehende Details nach offer_type indexieren
             existing_details = {d.offer_type: d for d in instance.details.all()}
 
             for detail_data in details_data:
                 offer_type = detail_data.get('offer_type')
-                if offer_type in existing_details:
-                    detail = existing_details[offer_type]
-                    for attr, value in detail_data.items():
-                        setattr(detail, attr, value)
-                    detail.save()
-                else:
-                    OfferDetail.objects.create(offer=instance, **detail_data)
+                if not offer_type:
+                    raise serializers.ValidationError({
+                        "details": "Each detail must include a valid 'offer_type'."
+                    })
+
+                if offer_type not in existing_details:
+                    raise serializers.ValidationError({
+                        "details": f"OfferDetail with offer_type '{offer_type}' does not exist for this offer."
+                    })
+
+                # Update bestehendes Detail
+                detail = existing_details[offer_type]
+                for attr, value in detail_data.items():
+                    setattr(detail, attr, value)
+                detail.save()
 
         return instance
     

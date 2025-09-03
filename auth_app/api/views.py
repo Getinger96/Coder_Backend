@@ -58,19 +58,16 @@ class CustomLoginView(ObtainAuthToken):
         data = {}
 
         if serializer.is_valid():
-            user = serializer.validated_data['user']
-            token, created = Token.objects.get_or_create(user=user)
-
-            data = {
-                'token': token.key,
-                'username': user.username,
-                'email': user.email,
-                'user_id': user.id
-            }
+         user = serializer.validated_data['user']
+         token, created = Token.objects.get_or_create(user=user)
+         return Response({
+         'token': token.key,
+         'username': user.username,
+         'email': user.email,
+         'user_id': user.id
+    }, status=status.HTTP_200_OK)
         else:
-            data = serializer.errors
-
-        return Response(data)
+         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 

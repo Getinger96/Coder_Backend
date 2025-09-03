@@ -3,13 +3,13 @@ from .serializers import CustomerProfileSerializer, BusinessProfileSerializer,Cu
 from coder.models import Profile,Offer,OfferDetail,Order,Review
 from coder.models import User
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.views import APIView
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Min, Avg
 from rest_framework.pagination import PageNumberPagination
 from django.shortcuts import get_object_or_404
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from.permissions import IsBusinessUserOrReadOnly, IsOwnerOrReadOnly, IsCustomerForPost, IsReviewOwnerOrReadOnly, IsBusinessForPatchOrAdminForDelete
 
 
@@ -133,8 +133,12 @@ class OfferView(generics.ListCreateAPIView):
         # Filter by max_delivery_time (annotate and filter)
         max_delivery_time = self.request.query_params.get('max_delivery_time')
         if max_delivery_time is not None:
-            queryset = queryset.annotate(min_delivery_time=Min('details__delivery_time_in_days'))\
-                               .filter(min_delivery_time__lte=max_delivery_time)
+         try:
+            max_delivery_time = int(max_delivery_time)
+         except ValueError:
+            raise ValidationError({"max_delivery_time": "Must be an integer."})
+        queryset = queryset.annotate(min_delivery_time=Min('details__delivery_time_in_days')) \
+                           .filter(min_delivery_time__lte=max_delivery_time)
 
         return queryset
 
@@ -350,6 +354,8 @@ class BaseInfoView(APIView):
     Error Handling:
         Returns 500 with a generic error message if an exception occurs.
     """
+
+    permission_classes = [AllowAny]
     def get(self, request):
         try:
             review_count = Review.objects.count()
