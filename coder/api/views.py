@@ -117,30 +117,34 @@ class OfferView(generics.ListCreateAPIView):
         return OfferListSerializer  # Serializer for listing offers
 
     def get_queryset(self):
-        queryset = Offer.objects.all()
+     queryset = super().get_queryset()
 
-        # Filter by creator_id (user id)
-        creator_id = self.request.query_params.get('creator_id')
-        if creator_id is not None:
-            queryset = queryset.filter(profile__user__id=creator_id)
+    # Filter by creator_id
+     creator_id = self.request.query_params.get('creator_id')
+     if creator_id:
+        queryset = queryset.filter(profile__user__id=creator_id)
 
-        # Filter by min_price (annotate and filter)
-        min_price = self.request.query_params.get('min_price')
-        if min_price is not None:
-            queryset = queryset.annotate(min_price=Min('details__price'))\
-                               .filter(min_price__gte=min_price)
+    # Filter by min_price
+     min_price = self.request.query_params.get('min_price')
+     if min_price:
+        try:
+            min_price = float(min_price)
+        except ValueError:
+            raise ValidationError({"min_price": "Must be a number."})
+        queryset = queryset.annotate(min_price=Min('details__price')) \
+                           .filter(min_price__gte=min_price)
 
-        # Filter by max_delivery_time (annotate and filter)
-        max_delivery_time = self.request.query_params.get('max_delivery_time')
-        if max_delivery_time is not None:
-         try:
+    # Filter by max_delivery_time
+     max_delivery_time = self.request.query_params.get('max_delivery_time')
+     if max_delivery_time:
+        try:
             max_delivery_time = int(max_delivery_time)
-         except ValueError:
+        except ValueError:
             raise ValidationError({"max_delivery_time": "Must be an integer."})
         queryset = queryset.annotate(min_delivery_time=Min('details__delivery_time_in_days')) \
                            .filter(min_delivery_time__lte=max_delivery_time)
 
-        return queryset
+     return queryset
 
 
 class OfferDetailView(generics.RetrieveUpdateDestroyAPIView):
