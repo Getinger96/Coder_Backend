@@ -158,9 +158,9 @@ class OrderDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsBusinessForPatchOrAdminForDelete]
 
     def get_object(self):
-        # Objekt holen (404 wenn nicht gefunden)
+       
         obj = get_object_or_404(Order, pk=self.kwargs.get(self.lookup_field))
-        # Danach die Berechtigungen prüfen
+      
         self.check_object_permissions(self.request, obj)
         return obj
 
