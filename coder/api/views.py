@@ -157,8 +157,15 @@ class OrderDetailView(generics.RetrieveUpdateDestroyAPIView):
     lookup_field = 'pk'
     permission_classes = [IsBusinessForPatchOrAdminForDelete]
 
+    def get_object(self):
+        # Objekt holen (404 wenn nicht gefunden)
+        obj = get_object_or_404(Order, pk=self.kwargs.get(self.lookup_field))
+        # Danach die Berechtigungen prüfen
+        self.check_object_permissions(self.request, obj)
+        return obj
+
     def patch(self, request, *args, **kwargs):
-        order = get_object_or_404(Order, pk=self.kwargs.get(self.lookup_field))
+        order = self.get_object()
 
         # Validate and save input data
         serializer = self.get_serializer(order, data=request.data, partial=True)
