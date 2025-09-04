@@ -1,5 +1,5 @@
 from rest_framework import generics,viewsets,filters,status
-from .serializers import CustomerProfileSerializer, BusinessProfileSerializer,CustomerProfileListSerializer,BusinessProfileListSerializer,OfferSerializer,OfferListSerializer,OfferDetailViewSerializer,OfferDetailSerializer,OrderSerializer,OrderCreateserializer,OrderUpdateSerializer,ReviewCreateSerializer,ReviewSerializer
+from .serializers import OfferSerializer,OfferListSerializer,OfferDetailViewSerializer,OfferDetailSerializer,OrderSerializer,OrderCreateserializer,OrderUpdateSerializer,ReviewCreateSerializer,ReviewSerializer
 from coder.models import Profile,Offer,OfferDetail,Order,Review
 from coder.models import User
 from rest_framework.response import Response
@@ -13,7 +13,6 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from.permissions import IsBusinessUserOrReadOnly, IsOwnerOrReadOnly, IsCustomerForPost, IsReviewOwnerOrReadOnly, IsBusinessForPatchOrAdminForDelete
 
 
-
 class LargeResultsSetPagination(PageNumberPagination):
     """
     Pagination class to control page size and maximum page size.
@@ -21,70 +20,6 @@ class LargeResultsSetPagination(PageNumberPagination):
     page_size = 6
     page_size_query_param = 'page_size'
     max_page_size = 10000
-
-
-class ProfileDetailView(generics.GenericAPIView):
-    """
-    Retrieve or partially update a user profile.
-
-    Permissions:
-        Only authenticated users.
-
-    Behavior:
-        GET: Returns the profile data. Uses different serializers for business and customer users.
-        PATCH: Allows the owner of the profile to partially update it.
-    """
-    queryset = Profile.objects.all()
-    permission_classes = [IsAuthenticated]
-    
-    def get_serializer_class(self):
-        if self.request.user.type == 'business':
-            return BusinessProfileSerializer
-        else:
-            return CustomerProfileSerializer
-
-    def get(self, request, *args, **kwargs):
-        profile = self.get_object()
-        serializer_class = self.get_serializer_class()
-        serializer = serializer_class(profile)
-        return Response(serializer.data)
-
-    def patch(self, request, *args, **kwargs):
-        profile = self.get_object()
-        if profile.user != request.user:
-            return Response({'detail': 'You do not have permission to edit this profile.'}, status=403)
-        
-        serializer_class = self.get_serializer_class()
-        input_serializer = serializer_class(profile, data=request.data, partial=True)
-        if input_serializer.is_valid():
-            input_serializer.save()
-            response_serializer = serializer_class(profile)
-            return Response(response_serializer.data)
-        return Response(input_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-class ProfileCustomerView(generics.ListAPIView):
-    """
-    List all customer profiles.
-
-    Permissions:
-        Only authenticated users.
-    """
-    queryset = Profile.objects.filter(user__type='customer')
-    serializer_class = CustomerProfileListSerializer
-    permission_classes = [IsAuthenticated]
-
-
-class ProfileBusinessView(generics.ListAPIView):
-    """
-    List all business profiles.
-
-    Permissions:
-        Only authenticated users.
-    """
-    queryset = Profile.objects.filter(user__type='business')
-    serializer_class = BusinessProfileListSerializer
-    permission_classes = [IsAuthenticated]
 
 
 class OfferView(generics.ListCreateAPIView):
@@ -223,7 +158,7 @@ class OrderDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsBusinessForPatchOrAdminForDelete]
 
     def patch(self, request, *args, **kwargs):
-        order = self.get_object()
+        order = get_object_or_404(Order, pk=self.kwargs.get(self.lookup_field))
 
         # Validate and save input data
         serializer = self.get_serializer(order, data=request.data, partial=True)

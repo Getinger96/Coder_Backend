@@ -1,13 +1,9 @@
 from django.urls import path
-from .views import ProfileDetailView,ProfileCustomerView, ProfileBusinessView, OfferView,OfferDetailView,OfferDetailRetrieveView,OrderView,OrderDetailView,BusinessUserOrderCountView,BusinessUserOrderCompletedCountView,ReviewCreateView,ReviewDetailView,BaseInfoView
-
-
+from .views import  OfferView,OfferDetailView,OfferDetailRetrieveView,OrderView,OrderDetailView,BusinessUserOrderCountView,BusinessUserOrderCompletedCountView,ReviewCreateView,ReviewDetailView,BaseInfoView
 
 
 urlpatterns = [
-    path('profile/<int:pk>/', ProfileDetailView.as_view(), name='profile_detail'),
-    path('profiles/customer/', ProfileCustomerView.as_view(), name='profile_customer'),
-    path('profiles/business/', ProfileBusinessView.as_view(), name='profile_business'),
+   
     path('offers/', OfferView.as_view(), name='offer_list'),
     path('offers/<int:pk>/', OfferDetailView.as_view(), name='offer_detail'),
     path('offerdetails/<int:pk>/', OfferDetailRetrieveView.as_view(), name='offerdetail_detail'),

@@ -3,8 +3,6 @@ from coder.models import Profile,OfferDetail, Offer,Order,Review
 from django.db.models import Min
 
 
-
-
 class OfferDetailHyperlinkedSerializer(serializers.HyperlinkedModelSerializer):
     """
     Hyperlinked serializer for OfferDetail — only includes id and a detail URL.
@@ -15,146 +13,6 @@ class OfferDetailHyperlinkedSerializer(serializers.HyperlinkedModelSerializer):
         extra_kwargs = {
             'url': {'view_name': 'offerdetail_detail', 'lookup_field': 'pk'}
         }
-
-
-class CustomerProfileSerializer(serializers.ModelSerializer):
-    """
-    Serializer for customer profiles, including linked user fields.
-    """
-    user = serializers.SerializerMethodField()
-    username = serializers.SerializerMethodField()
-    type = serializers.SerializerMethodField()
-    email = serializers.EmailField(source='user.email')
-    created_at = serializers.DateTimeField(source='user.date_joined', read_only=True)
-
-    class Meta:
-        model = Profile
-        fields = ['user', 'username', 'first_name', 'last_name', 'file', 'uploaded_at', 'type', 'email', 'created_at']
-
-    def get_user(self, obj):
-        return obj.user.id
-
-    def get_username(self, obj):
-        return obj.user.username
-
-    def get_type(self, obj):
-        return obj.user.type
-
-    def to_representation(self, instance):
-        """
-        Ensures 'file' is never null in the response.
-        """
-        data = super().to_representation(instance)
-        if data.get('file') is None:
-            data['file'] = ''
-        return data
-
-    def update(self, instance, validated_data):
-        """
-        Updates profile and user email.
-        """
-        user_data = validated_data.pop('user', {})
-        email = user_data.get('email')
-        if email:
-            instance.user.email = email
-            instance.user.save()
-
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
-
-        instance.save()
-        return instance
-
-
-
-
-class BusinessProfileSerializer(serializers.ModelSerializer):
-    """
-    Serializer for customer profiles, including linked user fields.
-    """
-    user = serializers.SerializerMethodField()
-    username = serializers.SerializerMethodField()
-    type = serializers.SerializerMethodField()
-    email = serializers.EmailField(source='user.email')
-    created_at = serializers.DateTimeField(source='user.date_joined', read_only=True)
-
-    class Meta:
-        model = Profile
-        fields = ['user', 'username', 'first_name', 'last_name', 'file', 'location', 'tel', 'description', 'working_hours', 'type', 'email', 'created_at']
-
-    def get_user(self, obj):
-        return obj.user.id
-
-    def get_username(self, obj):
-        return obj.user.username
-
-    def get_type(self, obj):
-        return obj.user.type
-
-    def to_representation(self, instance):
-        """
-        Ensures 'file' is never null in the response.
-        """
-        data = super().to_representation(instance)
-        if data.get('file') is None:
-            data['file'] = ''
-        return data
-
-    def update(self, instance, validated_data):
-        """
-        Updates profile and user email.
-        """
-        user_data = validated_data.pop('user', {})
-        email = user_data.get('email')
-        if email:
-            instance.user.email = email
-            instance.user.save()
-
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
-
-        instance.save()
-        return instance
-        
-
-    
-
-class CustomerProfileListSerializer(serializers.ModelSerializer):
-    """
-    Compact serializer for listing customer profiles.
-    """
-    user = serializers.SerializerMethodField()
-    username = serializers.SerializerMethodField()
-    type = serializers.SerializerMethodField()
-
-    class Meta:
-        model = Profile
-        fields = ['user', 'username', 'first_name', 'last_name', 'file', 'uploaded_at', 'type']
-
-    def get_user(self, obj): return obj.user.id
-    def get_username(self, obj): return obj.user.username
-    def get_type(self, obj): return obj.user.type
-
-    def to_representation(self, instance):
-        data = super().to_representation(instance)
-        if data.get('file') is None:
-            data['file'] = ''
-        return data
-
-    
-
-
-
-
-class BusinessProfileListSerializer(CustomerProfileListSerializer):
-    """
-    Compact serializer for listing business profiles with extended fields.
-    """
-    class Meta:
-        model = Profile
-        fields = ['user', 'username', 'first_name', 'last_name', 'file', 'location', 'tel', 'description', 'working_hours', 'type']
-
-    
 
 
 class OfferDetailSerializer(serializers.ModelSerializer):
@@ -206,17 +64,29 @@ class OfferSerializer(serializers.ModelSerializer):
             OfferDetail.objects.create(offer=offer, **detail_data)
 
         return offer
+    
+    """
+    Update an Offer instance and its related details.
+
+    - Updates main fields of the Offer.
+    - If `details` are provided:
+        * Validates presence of `offer_type`.
+        * Ensures each `offer_type` exists for the Offer.
+        * Updates the matching detail with new values.
+
+    Returns:
+        Offer: the updated instance.
+    """
 
     def update(self, instance, validated_data):
         details_data = validated_data.pop('details', None)
 
-        # Update Offer-Felder
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
 
         if details_data is not None:
-            # Bestehende Details nach offer_type indexieren
+            
             existing_details = {d.offer_type: d for d in instance.details.all()}
 
             for detail_data in details_data:
@@ -231,7 +101,7 @@ class OfferSerializer(serializers.ModelSerializer):
                         "details": f"OfferDetail with offer_type '{offer_type}' does not exist for this offer."
                     })
 
-                # Update bestehendes Detail
+             
                 detail = existing_details[offer_type]
                 for attr, value in detail_data.items():
                     setattr(detail, attr, value)

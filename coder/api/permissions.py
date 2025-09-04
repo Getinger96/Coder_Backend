@@ -1,8 +1,6 @@
 from rest_framework.permissions import BasePermission, SAFE_METHODS
 
 
-
-
 class IsBusinessUserOrReadOnly(BasePermission):
     """
     Allows only users with type='business' to perform write operations (POST).

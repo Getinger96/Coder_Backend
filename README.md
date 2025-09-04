@@ -82,8 +82,8 @@ python manage.py createsuperuser
 
 ```bash
 python manage.py runserver
-👉 API verfügbar unter: http://127.0.0.1:8000/
-👉 Admin Panel unter: http://127.0.0.1:8000/admin/
+👉 API available at: http://127.0.0.1:8000/
+👉 Admin panel under: http://127.0.0.1:8000/admin/
 ```
 
 ----
